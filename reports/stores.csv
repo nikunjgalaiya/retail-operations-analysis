@@ -1,0 +1,4 @@
+store,sale_receipts,gross_units,returned_units,net_pence,cogs_pence,gross_profit_pence,margin_pct,net_per_sale_receipt_pence
+Riverside,300,1232,19,1461400,614750,846650,57.93,4871.33
+Market,313,1227,17,1441000,608640,832360,57.76,4603.83
+Central,285,1088,20,1241500,520250,721250,58.1,4356.14

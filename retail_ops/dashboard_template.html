@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Northbank Retail | Operations Review</title>
+<style>
+:root{--navy:#102b40;--teal:#087f83;--muted:#667786;--line:#dbe4e9;--paper:#f4f7f8}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;color:var(--navy);background:var(--paper)}
+header{background:var(--navy);color:white;padding:24px 5%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-weight:750;letter-spacing:.06em}.label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8ce1db}
+main{max-width:1320px;margin:auto;padding:42px 5%}h1{font-size:40px;line-height:1.12;margin:10px 0 14px;letter-spacing:-.04em}h2{font-size:20px;margin:0 0 8px}
+.intro{display:flex;gap:32px;align-items:end;justify-content:space-between;margin-bottom:30px}.sub{color:var(--muted);margin:0}
+select{padding:11px 36px 11px 14px;border:1px solid var(--line);border-radius:8px;font:inherit;background:white;color:var(--navy)}
+label{display:block;font-size:13px;font-weight:650;margin-bottom:7px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:25px 0}
+.card,.panel{background:white;border:1px solid var(--line);border-radius:12px;padding:22px}
+.card small{color:var(--muted)}.value{font-size:29px;font-weight:750;margin:7px 0}
+.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;margin-bottom:22px}
+.tag{background:#e7f5f3;color:#0b6867;padding:4px 9px;border-radius:4px;font-size:12px;font-weight:650}
+.note{color:var(--muted);font-size:13px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:650;white-space:nowrap;border-bottom:1px solid var(--line);padding:14px 10px}
+td{padding:12px 10px;border-bottom:1px solid #edf1f4}td.num,th.num{text-align:right}
+.flag{color:#a84b17;font-weight:750}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px}
+a{color:var(--teal);font-weight:650}svg{width:100%;height:auto;display:block}footer{font-size:12px;color:var(--muted);margin-top:25px}
+input[type=checkbox]{accent-color:var(--teal)}.check{display:flex;gap:8px;align-items:center;margin:12px 0}
+@media(max-width:800px){.cards{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.intro{align-items:start;flex-direction:column}h1{font-size:32px}header{gap:20px}.toolbar{align-items:start;flex-direction:column}}
+</style></head><body>
+<header><div class="brand">NORTHBANK / RETAIL</div><div class="label">Independent portfolio case study</div></header>
+<main>
+<div class="intro"><div><span class="tag">Synthetic scenario</span><h1>From sales signals<br>to stock decisions.</h1><p class="sub" id="period"></p></div>
+<div><label for="store">Location</label><select id="store"><option value="all">All locations</option></select></div></div>
+<div class="cards" id="cards" aria-live="polite"></div>
+<div class="grid">
+<section class="panel"><h2>Weekly net sales</h2><p class="sub">GBP, refunds deducted. Source weeks begin on Monday.</p><div id="chart"></div></section>
+<section class="panel"><h2>What needs attention</h2><div id="insights"></div><p class="note">Replenishment recommendations use observed gross unit sales, supplier lead time, safety stock and a 7-day review cycle. They are a rule-based proposal, not a demand forecast.</p></section>
+</div>
+<section class="panel">
+<div class="toolbar"><div><h2>Replenishment review</h2><p class="sub">Inventory snapshot at the reporting period end.</p></div><a href="inventory.csv" download>Download inventory CSV</a></div>
+<label class="check"><input type="checkbox" id="only" checked> Show positions with a suggested order</label>
+<div class="table-wrap"><table><thead><tr><th>Location</th><th>Product</th><th class="num">On hand</th><th class="num">On order</th><th class="num">Cover days</th><th class="num">Reorder point</th><th class="num">Suggested units</th></tr></thead><tbody id="stock"></tbody></table></div>
+<p class="note">Cover days use on-hand stock. Reorder decisions use on-hand plus on-order stock. Suggested order quantities top up to a pack-rounded target when inventory position is at or below the reorder point.</p>
+</section>
+<footer>Built with Python, SQL and vanilla JavaScript. All source data is fictional. Returns reverse cost only when marked resalable. Net sales per sale receipt includes period refunds and is not gross basket value. No claim of realised business savings.</footer>
+</main>
+<script>
+const D=__METRICS__;
+const money=new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0});
+const number=new Intl.NumberFormat('en-GB');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sum=(rows,key)=>rows.reduce((a,x)=>a+x[key],0);
+document.getElementById('period').textContent=D.start+' to '+D.end+' · '+D.period_days+' calendar days';
+for(const s of D.stores){const o=document.createElement('option');o.value=s.store;o.textContent=s.store;document.getElementById('store').append(o)}
+function render(){
+ const selected=document.getElementById('store').value;
+ const filter=rows=>rows.filter(x=>selected==='all'||x.store===selected);
+ const sales=filter(D.stores), inventory=filter(D.inventory), revenue=sum(sales,'net_pence'),profit=sum(sales,'gross_profit_pence');
+ const gross=sum(sales,'gross_units'),returned=sum(sales,'returned_units');
+ const cards=[['Net sales',money.format(revenue/100),'After period refunds'],['Gross profit',money.format(profit/100),'Before operating costs'],['Gross margin',revenue?(profit/revenue*100).toFixed(1)+'%':'n.a.','Weighted across selected stores'],['Returned units',number.format(returned),gross?(returned/gross*100).toFixed(1)+'% of gross units':'No sales units']];
+ document.getElementById('cards').innerHTML=cards.map(c=>'<div class="card"><small>'+esc(c[0])+'</small><div class="value">'+esc(c[1])+'</div><small>'+esc(c[2])+'</small></div>').join('');
+ const points={};for(const w of filter(D.weekly))points[w.week_start]=(points[w.week_start]||0)+w.net_pence/100;
+ const entries=Object.entries(points).sort((a,b)=>a[0].localeCompare(b[0]));
+ const max=Math.max(1,...entries.map(x=>x[1])),bar=560/Math.max(1,entries.length);
+ let svg='<svg viewBox="0 0 660 260" role="img" aria-label="Weekly net sales bar chart"><line x1="50" x2="640" y1="210" y2="210" stroke="#dbe4e9"/>';
+ for(let i=0;i<entries.length;i++){const [week,v]=entries[i],h=v/max*155,x=65+i*bar;svg+='<rect x="'+x+'" y="'+(210-h)+'" width="'+(bar*.65)+'" height="'+h+'" rx="3" fill="#087f83"><title>'+week+': '+money.format(v)+'</title></rect><text x="'+x+'" y="'+(200-h)+'" font-size="11" fill="#102b40">'+esc(money.format(v))+'</text><text x="'+x+'" y="235" font-size="11" fill="#667786">'+week.slice(5)+'</text>'}
+ document.getElementById('chart').innerHTML=svg+'</svg>';
+ const need=inventory.filter(x=>x.reorder_units>0),units=sum(need,'reorder_units');
+ document.getElementById('insights').innerHTML='<p><strong>'+need.length+' of '+inventory.length+'</strong> store/product positions meet the reorder rule.</p><p>Suggested replenishment: <strong>'+number.format(units)+' units</strong>.</p><p>Review the largest recommendations with a manager before placing orders. Current open orders are already included.</p>';
+ const rows=(document.getElementById('only').checked?need:inventory).slice().sort((a,b)=>b.reorder_units-a.reorder_units||a.store.localeCompare(b.store));
+ document.getElementById('stock').innerHTML=rows.map(x=>'<tr><td>'+esc(x.store)+'</td><td>'+esc(x.product)+'</td><td class="num">'+x.on_hand+'</td><td class="num">'+x.on_order+'</td><td class="num">'+(x.cover_days===null?'n.a.':x.cover_days.toFixed(1))+'</td><td class="num">'+x.reorder_point.toFixed(1)+'</td><td class="num '+(x.reorder_units?'flag':'')+'">'+x.reorder_units+'</td></tr>').join('')||'<tr><td colspan="7">No positions match this filter.</td></tr>';
+}
+document.getElementById('store').addEventListener('change',render);document.getElementById('only').addEventListener('change',render);render();
+</script></body></html>
